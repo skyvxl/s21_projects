@@ -1,0 +1,53 @@
+# Project name
+PROJECT_NAME           = "3DViewer v2.0"
+PROJECT_NUMBER         = 2.0
+PROJECT_BRIEF          = "A simple realisation of the 3dViewer on Qt, C++ language"
+PROJECT_LOGO           = "../docs/L_Logo.jpg"
+
+# Output
+OUTPUT_DIRECTORY       = docs
+
+# Input files - все исходные коды
+INPUT                  = ../controllers \
+                         ../models \
+                         ../docs
+INPUT_ENCODING         = UTF-8
+
+# File patterns 
+FILE_PATTERNS          = *.md \
+                         *.cpp \
+                         *.hpp \
+                         *.h
+
+# Recursive search
+RECURSIVE              = YES
+
+# Exclude build directory
+EXCLUDE                = build/
+EXCLUDE_PATTERNS       = */build/*
+
+# Main page from markdown
+USE_MDFILE_AS_MAINPAGE = "../docs/README.md"
+
+# Image path
+IMAGE_PATH             = ../docs/
+
+# Extract all 
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = YES
+
+# Source browsing
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+
+# Warning settings
+QUIET                  = NO
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+
+# Для C++ проекта
+OPTIMIZE_OUTPUT_FOR_C  = NO
+BUILTIN_STL_SUPPORT    = YES
+SORT_MEMBER_DOCS       = YES

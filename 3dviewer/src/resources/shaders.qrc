@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="/shaders">
+    <file alias="triangle.vert">shaders/triangle.vert</file>
+    <file alias="triangle.frag">shaders/triangle.frag</file>
+  </qresource>
+</RCC>
