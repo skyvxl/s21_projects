@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: "3"
+
+vars:
+  BIN_DIR: ./bin
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run
+
+  fmt:
+    desc: Run gofmt
+    cmds:
+      - gofmt -s -w .
+
+  run:
+    desc: Run the application
+    cmds:
+      - go run src/cmd/app/main.go
+
+  build:
+    desc: Build the application
+    cmds:
+      - go build -o {{.BIN_DIR}}/app{{exeExt}} src/cmd/app/main.go
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test -v ./...
+
+  generate:
+    desc: Generate sqlc files
+    cmds:
+      - sqlc generate

@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Крестики-Нолики</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        .polling-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4ecca3;
+            margin-left: 6px;
+            animation: pulse 1.5s ease-in-out infinite;
+            vertical-align: middle;
+        }
+
+        @keyframes pulse {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.3;
+            }
+        }
+    </style>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+
+        #app {
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            margin: 15px 0 10px;
+            font-size: 18px;
+            color: #aaa;
+        }
+
+        input,
+        button {
+            font-size: 16px;
+            border-radius: 5px;
+            outline: none;
+        }
+
+        input {
+            padding: 10px 15px;
+            background: #16213e;
+            border: 2px solid #0f3460;
+            color: #eee;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #e94560;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #c73e54;
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #0f3460;
+        }
+
+        .btn-secondary:hover {
+            background: #1a4a8a;
+        }
+
+        .btn-small {
+            padding: 6px 14px;
+            font-size: 14px;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            gap: 5px;
+            margin: 20px auto;
+            width: fit-content;
+        }
+
+        .cell {
+            width: 100px;
+            height: 100px;
+            background: #16213e;
+            border: 2px solid #0f3460;
+            font-size: 48px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .cell:hover:not(.disabled) {
+            background: #0f3460;
+        }
+
+        .cell.disabled {
+            cursor: not-allowed;
+        }
+
+        .cell.x {
+            color: #e94560;
+        }
+
+        .cell.o {
+            color: #0f3460;
+        }
+
+        .status {
+            font-size: 18px;
+            margin: 15px 0;
+            min-height: 25px;
+        }
+
+        .status.win {
+            color: #4ecca3;
+        }
+
+        .status.lose {
+            color: #e94560;
+        }
+
+        .error {
+            color: #e94560;
+            margin-top: 10px;
+        }
+
+        .success {
+            color: #4ecca3;
+            margin-top: 10px;
+        }
+
+        .game-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .game-list li {
+            background: #16213e;
+            border: 1px solid #0f3460;
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .user-info {
+            background: #16213e;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .nav {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 10px 0;
+        }
+
+        .muted {
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        .ratio {
+            color: #4ecca3;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <h1>Крестики-Нолики</h1>
+
+    <!-- Авторизация -->
+    <div v-if="!accessToken">
+        <h2>{{ isRegister ? 'Регистрация' : 'Вход' }}</h2>
+        <input
+                @keyup.enter="auth"
+                placeholder="Логин"
+                v-model="login"
+        />
+        <input
+                @keyup.enter="auth"
+                placeholder="Пароль"
+                type="password"
+                v-model="password"
+        />
+        <div>
+            <button @click="auth">
+                {{ isRegister ? 'Зарегистрироваться' : 'Войти' }}
+            </button>
+        </div>
+        <div style="margin-top: 10px">
+            <button
+                    @click="isRegister = !isRegister"
+                    class="btn-secondary btn-small"
+            >
+                {{ authModeToggleText }}
+            </button>
+        </div>
+        <div class="error" v-if="error">{{ error }}</div>
+        <div class="success" v-if="successMsg">{{ successMsg }}</div>
+    </div>
+
+    <!-- Главное меню -->
+    <div v-if="accessToken && screen === 'menu'">
+        <div class="user-info">
+            Вы: <strong>{{ currentUser.login }}</strong>
+            <button
+                    @click="logout"
+                    class="btn-small btn-secondary"
+                    style="margin-left: 10px"
+            >
+                Выйти
+            </button>
+        </div>
+        <div class="nav">
+            <button @click="createGame(true)">
+                Игра с компьютером
+            </button>
+            <button @click="createGame(false)">
+                Создать игру (PvP)
+            </button>
+            <button @click="loadAvailableGames" class="btn-secondary">
+                Доступные игры
+            </button>
+            <button @click="loadGameHistory" class="btn-secondary">
+                История игр
+            </button>
+            <button @click="loadLeaderboard" class="btn-secondary">
+                Лидеры
+            </button>
+        </div>
+        <div class="error" v-if="error">{{ error }}</div>
+    </div>
+
+    <!-- Список доступных игр -->
+    <div v-if="accessToken && screen === 'lobby'">
+        <h2>Доступные игры</h2>
+        <button
+                @click="screen = 'menu'"
+                class="btn-secondary btn-small"
+        >
+            Назад
+        </button>
+        <span title="Автообновление"
+        ><span class="polling-dot"></span
+        ></span>
+        <ul class="game-list" v-if="availableGames.length > 0">
+            <li :key="g.ID" v-for="g in availableGames">
+                <span>{{ g.ID.substring(0, 8) }}...</span>
+                <button @click="joinGame(g.ID)" class="btn-small">
+                    Присоединиться
+                </button>
+            </li>
+        </ul>
+        <p style="color: #aaa" v-else>Нет доступных игр</p>
+        <div class="error" v-if="error">{{ error }}</div>
+    </div>
+
+    <!-- История завершённых игр -->
+    <div v-if="accessToken && screen === 'history'">
+        <h2>История игр</h2>
+        <button
+                @click="screen = 'menu'"
+                class="btn-secondary btn-small"
+        >
+            Назад
+        </button>
+        <ul class="game-list" v-if="gameHistory.length > 0">
+            <li :key="g.id" v-for="g in gameHistory">
+                <span>
+                    {{ shortID(g.id) }} — {{ gameResultText(g) }}
+                </span>
+                <button @click="openHistoryGame(g.id)" class="btn-small btn-secondary">
+                    Открыть
+                </button>
+            </li>
+        </ul>
+        <p style="color: #aaa" v-else>Завершённых игр пока нет</p>
+        <div class="error" v-if="error">{{ error }}</div>
+    </div>
+
+    <!-- Таблица лидеров -->
+    <div v-if="accessToken && screen === 'leaderboard'">
+        <h2>Лидеры</h2>
+        <button
+                @click="screen = 'menu'"
+                class="btn-secondary btn-small"
+        >
+            Назад
+        </button>
+        <ul class="game-list" v-if="leaderboard.length > 0">
+            <li :key="entry.user_id" v-for="(entry, index) in leaderboard">
+                <span>
+                    {{ index + 1 }}. <strong>{{ entry.login }}</strong>
+                    <span class="muted">({{ shortID(entry.user_id) }})</span>
+                </span>
+                <span class="ratio">{{ ratioText(entry.win_ratio) }}</span>
+            </li>
+        </ul>
+        <p style="color: #aaa" v-else>Пока нет данных для таблицы лидеров</p>
+        <div class="error" v-if="error">{{ error }}</div>
+    </div>
+
+    <!-- Игровой экран -->
+    <div v-if="accessToken && screen === 'game'">
+        <button
+                @click="screen = 'menu'"
+                class="btn-secondary btn-small"
+        >
+            Меню
+        </button>
+        <div :class="statusClass" class="status">{{ statusText }}</div>
+        <div class="board">
+            <div
+                    :class="{
+                        'x': cell === 1,
+                        'o': cell === -1,
+                        'disabled': cell !== 0 || !canMove
+                    }"
+                    :key="index"
+                    @click="makeMove(index)"
+                    class="cell"
+                    v-for="(cell, index) in flatBoard"
+            >
+                {{ cellSymbol(cell) }}
+            </div>
+        </div>
+        <div v-if="!gameData.game_over && !isMyTurn">
+            <span class="polling-dot" title="Автообновление"></span>
+        </div>
+        <div v-else>
+            <button @click="screen = 'menu'">В меню</button>
+        </div>
+        <div class="error" v-if="error">{{ error }}</div>
+    </div>
+</div>
+
+<script>
+    const {createApp, ref, computed, watchEffect} = Vue;
+
+    createApp({
+        setup() {
+            const login = ref("");
+            const password = ref("");
+            const isRegister = ref(false);
+            const accessToken = ref(localStorage.getItem("accessToken") || "");
+            const refreshToken = ref(localStorage.getItem("refreshToken") || "");
+            const currentUser = ref({});
+            const error = ref("");
+            const successMsg = ref("");
+            const loading = ref(false);
+            const screen = ref("menu");
+
+            const gameData = ref({
+                id: "",
+                board: [
+                    [0, 0, 0],
+                    [0, 0, 0],
+                    [0, 0, 0],
+                ],
+                game_over: false,
+                winner: "",
+                status: "",
+                current_turn: "",
+                player1_id: "",
+            });
+            const isVsComputer = ref(false);
+            const availableGames = ref([]);
+            const gameHistory = ref([]);
+            const leaderboard = ref([]);
+
+            const flatBoard = computed(() =>
+                gameData.value.board.flat(),
+            );
+
+            const isMyTurn = computed(() => {
+                if (!gameData.value.current_turn) return false;
+                return (
+                    gameData.value.current_turn === currentUser.value.id
+                );
+            });
+
+            const mySymbol = computed(() => {
+                if (currentUser.value.id === gameData.value.player1_id)
+                    return 1;
+                return -1;
+            });
+
+            const canMove = computed(() => {
+                if (gameData.value.game_over || loading.value)
+                    return false;
+                return isMyTurn.value;
+            });
+
+            const statusText = computed(() => {
+                if (loading.value) return "Загрузка...";
+                const s = gameData.value.status;
+                if (s === "draw") return "Ничья!";
+                if (s === "win") {
+                    const w = gameData.value.winner;
+                    if (w === currentUser.value.id)
+                        return "Вы победили!";
+                    if (w) return "Вы проиграли!";
+                    return "Компьютер победил!";
+                }
+                if (s === "waiting")
+                    return "Ожидание второго игрока...";
+                if (isMyTurn.value) return "Ваш ход";
+                return "Ход соперника...";
+            });
+
+            const statusClass = computed(() => {
+                const s = gameData.value.status;
+                if (s !== "win") return "";
+                const w = gameData.value.winner;
+                if (w === currentUser.value.id) return "win";
+                return "lose";
+            });
+
+            const authModeToggleText = computed(() => {
+                if (isRegister.value) return "Уже есть аккаунт? Войти";
+                return "Нет аккаунта? Регистрация";
+            });
+
+            const cellSymbol = (value) => {
+                if (value === 1) return "X";
+                if (value === -1) return "O";
+                return "";
+            };
+
+            const shortID = (id) => {
+                if (!id) return "";
+                return id.substring(0, 8) + "...";
+            };
+
+            const gameResultText = (game) => {
+                if (game.status === "draw") return "ничья";
+                if (game.winner === currentUser.value.id) return "победа";
+                if (game.winner) return "поражение";
+                return "завершена";
+            };
+
+            const ratioText = (value) => {
+                return Math.round((value || 0) * 100) + "%";
+            };
+
+            const authHeaders = () => ({
+                "Content-Type": "application/json",
+                Authorization: "Bearer " + accessToken.value,
+            });
+
+            const saveTokens = (tokens) => {
+                accessToken.value = tokens.accessToken;
+                refreshToken.value = tokens.refreshToken;
+                localStorage.setItem("accessToken", tokens.accessToken);
+                localStorage.setItem("refreshToken", tokens.refreshToken);
+            };
+
+            const clearTokens = () => {
+                accessToken.value = "";
+                refreshToken.value = "";
+                localStorage.removeItem("accessToken");
+                localStorage.removeItem("refreshToken");
+            };
+
+            const refreshAccessToken = async () => {
+                if (!refreshToken.value) return false;
+                const res = await fetch("/refresh/access", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({refreshToken: refreshToken.value}),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    clearTokens();
+                    currentUser.value = {};
+                    screen.value = "menu";
+                    return false;
+                }
+                saveTokens(data);
+                return true;
+            };
+
+            const apiFetch = async (url, options = {}, retry = true) => {
+                const opts = {
+                    ...options,
+                    headers: {
+                        ...authHeaders(),
+                        ...(options.headers || {}),
+                    },
+                };
+                const res = await fetch(url, opts);
+                if (res.status === 401 && retry && await refreshAccessToken()) {
+                    return apiFetch(url, options, false);
+                }
+                return res;
+            };
+
+            const loadCurrentUser = async () => {
+                const res = await apiFetch("/user/me");
+                const data = await res.json();
+                if (!res.ok) {
+                    error.value = data.error || "Не удалось загрузить пользователя";
+                    return false;
+                }
+                currentUser.value = data;
+                return true;
+            };
+
+            // Авторизация
+            const auth = async () => {
+                error.value = "";
+                successMsg.value = "";
+
+                if (isRegister.value) {
+                    try {
+                        const res = await fetch("/register", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({
+                                login: login.value,
+                                password: password.value,
+                            }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            error.value = data.error;
+                            return;
+                        }
+                        successMsg.value =
+                            "Регистрация успешна! Теперь войдите.";
+                        isRegister.value = false;
+                    } catch (e) {
+                        error.value = "Ошибка подключения";
+                    }
+                } else {
+                    try {
+                        const res = await fetch("/login", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({
+                                login: login.value,
+                                password: password.value,
+                            }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            error.value = data.error;
+                            return;
+                        }
+                        saveTokens(data);
+                        if (await loadCurrentUser()) {
+                            screen.value = "menu";
+                        }
+                    } catch (e) {
+                        error.value = "Ошибка подключения";
+                    }
+                }
+            };
+
+            const logout = () => {
+                clearTokens();
+                currentUser.value = {};
+                login.value = "";
+                password.value = "";
+                error.value = "";
+                screen.value = "menu";
+            };
+
+            // Создание игры
+            const createGame = async (vsComp) => {
+                error.value = "";
+                isVsComputer.value = vsComp;
+                try {
+                    const res = await apiFetch("/game/create", {
+                        method: "POST",
+                        body: JSON.stringify({vs_computer: vsComp}),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                        error.value = data.error;
+                        return;
+                    }
+                    gameData.value = data;
+                    screen.value = "game";
+                } catch (e) {
+                    error.value = "Ошибка подключения";
+                }
+            };
+
+            // Загрузка доступных игр
+            const fetchGames = async () => {
+                try {
+                    const res = await apiFetch("/games");
+                    if (res.ok)
+                        availableGames.value = (await res.json()) || [];
+                } catch {
+                }
+            };
+
+            const loadAvailableGames = async () => {
+                error.value = "";
+                try {
+                    const res = await apiFetch("/games");
+                    const data = await res.json();
+                    if (!res.ok) {
+                        error.value = data.error;
+                        return;
+                    }
+                    availableGames.value = data || [];
+                    screen.value = "lobby";
+                } catch (e) {
+                    error.value = "Ошибка подключения";
+                }
+            };
+
+            const loadGameHistory = async () => {
+                error.value = "";
+                try {
+                    const res = await apiFetch("/games/history");
+                    const data = await res.json();
+                    if (!res.ok) {
+                        error.value = data.error;
+                        return;
+                    }
+                    gameHistory.value = data || [];
+                    screen.value = "history";
+                } catch (e) {
+                    error.value = "Ошибка подключения";
+                }
+            };
+
+            const openHistoryGame = async (gameId) => {
+                error.value = "";
+                try {
+                    const res = await apiFetch(`/game/${gameId}`);
+                    const data = await res.json();
+                    if (!res.ok) {
+                        error.value = data.error;
+                        return;
+                    }
+                    gameData.value = data;
+                    screen.value = "game";
+                } catch (e) {
+                    error.value = "Ошибка подключения";
+                }
+            };
+
+            const loadLeaderboard = async () => {
+                error.value = "";
+                try {
+                    const res = await apiFetch("/leaderboard?limit=10");
+                    const data = await res.json();
+                    if (!res.ok) {
+                        error.value = data.error;
+                        return;
+                    }
+                    leaderboard.value = data || [];
+                    screen.value = "leaderboard";
+                } catch (e) {
+                    error.value = "Ошибка подключения";
+                }
+            };
+
+            // Присоединение к игре
+            const joinGame = async (gameId) => {
+                error.value = "";
+                try {
+                    const res = await apiFetch(`/game/${gameId}/join`, {
+                        method: "POST",
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                        error.value = data.error;
+                        return;
+                    }
+                    gameData.value = data;
+                    isVsComputer.value = false;
+                    screen.value = "game";
+                } catch (e) {
+                    error.value = "Ошибка подключения";
+                }
+            };
+
+            // Ход
+            const makeMove = async (index) => {
+                if (!canMove.value) return;
+                const row = Math.floor(index / 3);
+                const col = index % 3;
+                if (gameData.value.board[row][col] !== 0) return;
+
+                const newBoard = gameData.value.board.map((r) => [
+                    ...r,
+                ]);
+                newBoard[row][col] = mySymbol.value;
+
+                loading.value = true;
+                error.value = "";
+
+                try {
+                    const res = await apiFetch(
+                        `/game/${gameData.value.id}`,
+                        {
+                            method: "POST",
+                            body: JSON.stringify({board: newBoard}),
+                        },
+                    );
+                    const data = await res.json();
+                    if (!res.ok) {
+                        error.value = data.error;
+                        loading.value = false;
+                        return;
+                    }
+                    gameData.value = data;
+                } catch (e) {
+                    error.value = "Ошибка подключения";
+                } finally {
+                    loading.value = false;
+                }
+            };
+
+            // Обновить состояние игры (для PvP)
+            const refreshGame = async () => {
+                error.value = "";
+                try {
+                    const res = await apiFetch(
+                        `/game/${gameData.value.id}`,
+                    );
+                    const data = await res.json();
+                    if (!res.ok) {
+                        error.value = data.error;
+                        return;
+                    }
+                    gameData.value = data;
+                } catch (e) {
+                    error.value = "Ошибка подключения";
+                }
+            };
+
+            // Авто-поллинг: лобби и игра (ход соперника / ожидание)
+            watchEffect((onCleanup) => {
+                const s = screen.value;
+                const over = gameData.value.game_over;
+                const myTurn = isMyTurn.value;
+                if (!accessToken.value) return;
+
+                let fn = null;
+                if (s === "lobby") fn = fetchGames;
+                else if (s === "game" && !over && !myTurn)
+                    fn = refreshGame;
+
+                if (fn) {
+                    const id = setInterval(fn, 1500);
+                    onCleanup(() => clearInterval(id));
+                }
+            });
+
+            if (accessToken.value) {
+                loadCurrentUser().catch(() => {
+                    clearTokens();
+                });
+            }
+
+            return {
+                login,
+                password,
+                isRegister,
+                accessToken,
+                currentUser,
+                error,
+                successMsg,
+                loading,
+                screen,
+                gameData,
+                isVsComputer,
+                availableGames,
+                gameHistory,
+                leaderboard,
+                flatBoard,
+                canMove,
+                isMyTurn,
+                mySymbol,
+                statusText,
+                statusClass,
+                authModeToggleText,
+                cellSymbol,
+                shortID,
+                gameResultText,
+                ratioText,
+                auth,
+                logout,
+                createGame,
+                loadAvailableGames,
+                loadGameHistory,
+                loadLeaderboard,
+                joinGame,
+                openHistoryGame,
+                makeMove,
+                refreshGame,
+            };
+        },
+    }).mount("#app");
+</script>
+</body>
+</html>
