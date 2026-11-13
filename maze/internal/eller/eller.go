@@ -1,9 +1,9 @@
 package eller
 
 import (
-	"maze/internal/maze"
 	"fmt"
 	"math/rand"
+	"maze/internal/maze"
 	"time"
 )
 

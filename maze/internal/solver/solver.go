@@ -1,8 +1,8 @@
 package solver
 
 import (
-	"maze/internal/maze"
 	"fmt"
+	"maze/internal/maze"
 )
 
 func Solve(m *maze.Maze, start, end maze.Point) ([]maze.Point, error) {

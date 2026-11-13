@@ -1,14 +1,15 @@
 package gui
 
 import (
-	"maze/internal/cave"
-	"maze/internal/eller"
-	"maze/internal/maze"
-	"maze/internal/render"
-	"maze/internal/solver"
 	"fmt"
 	"image"
 	"math/rand"
+	"maze/internal/cave"
+	"maze/internal/eller"
+	"maze/internal/maze"
+	"maze/internal/qlearning"
+	"maze/internal/render"
+	"maze/internal/solver"
 	"strconv"
 	"sync"
 	"time"
@@ -38,6 +39,10 @@ type App struct {
 	currentCave *cave.Cave
 	caveImage   *canvas.Image
 
+	agent      *qlearning.Agent
+	agentPath  []maze.Point
+	agentImage *canvas.Image
+
 	autoMu   sync.Mutex
 	autoStop chan struct{}
 }
@@ -50,10 +55,12 @@ func Run() {
 	app := &App{window: window}
 	app.mazeImage = imageView(render.Maze(nil, nil, canvasSize, wallWidth))
 	app.caveImage = imageView(render.Cave(nil, canvasSize))
+	app.agentImage = imageView(render.Maze(nil, nil, canvasSize, wallWidth))
 
 	window.SetContent(container.NewAppTabs(
 		container.NewTabItem("Maze", app.mazeTab()),
 		container.NewTabItem("Cave", app.caveTab()),
+		container.NewTabItem("Agent", app.agentTab()),
 	))
 	window.SetOnClosed(app.stopAuto)
 	window.ShowAndRun()
@@ -92,8 +99,11 @@ func (a *App) mazeTab() fyne.CanvasObject {
 		}
 		a.currentMaze = generated
 		a.currentPath = nil
+		a.agent = nil
+		a.agentPath = nil
 		setEndEntriesToMazeSize(rows, cols, endRowEntry, endColEntry)
 		a.refreshMaze()
+		a.refreshAgent()
 	})
 	solveButton := widget.NewButtonWithIcon("Solve", theme.SearchIcon(), func() {
 		if a.currentMaze == nil {
@@ -229,6 +239,72 @@ func (a *App) caveTab() fyne.CanvasObject {
 	return container.NewBorder(nil, nil, fixedControls(controls), nil, fixedCanvas(a.caveImage))
 }
 
+func (a *App) agentTab() fyne.CanvasObject {
+	endRowEntry := entry("10")
+	endColEntry := entry("10")
+	startRowEntry := entry("1")
+	startColEntry := entry("1")
+
+	trainButton := widget.NewButtonWithIcon("Train", theme.MediaPlayIcon(), func() {
+		if a.currentMaze == nil {
+			dialog.ShowError(fmt.Errorf("load or generate a maze first"), a.window)
+			return
+		}
+		end, err := pointFromEntries("end", endRowEntry, endColEntry, a.currentMaze)
+		if err != nil {
+			dialog.ShowError(err, a.window)
+			return
+		}
+
+		agent, err := qlearning.Train(a.currentMaze, end, qlearning.DefaultParams(), seededRand())
+		if err != nil {
+			dialog.ShowError(err, a.window)
+			return
+		}
+		a.agent = agent
+		a.agentPath = nil
+		a.refreshAgent()
+	})
+
+	runButton := widget.NewButtonWithIcon("Run", theme.SearchIcon(), func() {
+		if a.agent == nil {
+			dialog.ShowError(fmt.Errorf("train the agent first"), a.window)
+			return
+		}
+		start, err := pointFromEntries("start", startRowEntry, startColEntry, a.currentMaze)
+		if err != nil {
+			dialog.ShowError(err, a.window)
+			return
+		}
+
+		path, err := a.agent.Path(start)
+		if err != nil {
+			dialog.ShowError(err, a.window)
+			return
+		}
+		a.agentPath = path
+		a.refreshAgent()
+	})
+
+	controls := container.NewVBox(
+		widget.NewLabel("Q-learning"),
+		widget.NewForm(
+			widget.NewFormItem("End row", endRowEntry),
+			widget.NewFormItem("End col", endColEntry),
+		),
+		trainButton,
+		widget.NewSeparator(),
+		widget.NewLabel("Run from"),
+		widget.NewForm(
+			widget.NewFormItem("Start row", startRowEntry),
+			widget.NewFormItem("Start col", startColEntry),
+		),
+		runButton,
+	)
+
+	return container.NewBorder(nil, nil, fixedControls(controls), nil, fixedCanvas(a.agentImage))
+}
+
 func (a *App) loadMaze(afterLoad func(*maze.Maze)) {
 	fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 		if err != nil {
@@ -247,10 +323,13 @@ func (a *App) loadMaze(afterLoad func(*maze.Maze)) {
 		}
 		a.currentMaze = loaded
 		a.currentPath = nil
+		a.agent = nil
+		a.agentPath = nil
 		if afterLoad != nil {
 			afterLoad(loaded)
 		}
 		a.refreshMaze()
+		a.refreshAgent()
 	}, a.window)
 	configureTextDialog(fileDialog)
 	fileDialog.Show()
@@ -403,6 +482,11 @@ func (a *App) refreshMaze() {
 func (a *App) refreshCave() {
 	a.caveImage.Image = render.Cave(a.currentCave, canvasSize)
 	a.caveImage.Refresh()
+}
+
+func (a *App) refreshAgent() {
+	a.agentImage.Image = render.Maze(a.currentMaze, a.agentPath, canvasSize, wallWidth)
+	a.agentImage.Refresh()
 }
 
 func entry(value string) *widget.Entry {

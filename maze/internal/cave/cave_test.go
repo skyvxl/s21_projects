@@ -1,9 +1,9 @@
 package cave_test
 
 import (
-	"maze/internal/cave"
 	"bytes"
 	"math/rand"
+	"maze/internal/cave"
 	"strings"
 	"testing"
 )

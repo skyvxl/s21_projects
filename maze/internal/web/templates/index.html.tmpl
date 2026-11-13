@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Maze</title>
+<style>
+  body { font-family: sans-serif; max-width: 960px; margin: 2rem auto; color: #111827; }
+  h1 { margin-bottom: .25rem; }
+  section { border: 1px solid #d1d5db; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; }
+  section h2 { margin-top: 0; }
+  form { display: flex; flex-wrap: wrap; gap: .5rem; align-items: flex-end; margin-bottom: .75rem; }
+  label { display: flex; flex-direction: column; font-size: .8rem; gap: .15rem; }
+  input[type=number] { width: 4rem; }
+  img { display: block; border: 1px solid #d1d5db; max-width: 100%; background: #fff; }
+  .notice { background: #ecfdf5; border: 1px solid #10b981; padding: .5rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
+  .error { background: #fef2f2; border: 1px solid #ef4444; padding: .5rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
+</style>
+</head>
+<body>
+<h1>Maze</h1>
+<p>Generate or load a maze, solve it with a breadth-first search, or train a Q-learning agent that walks it from any starting point to a fixed end point.</p>
+
+{{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+{{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+
+<section>
+  <h2>Maze</h2>
+  <form method="post" action="/maze/generate">
+    <label>Rows <input type="number" name="rows" min="1" max="{{.MaxSize}}" value="10" required></label>
+    <label>Columns <input type="number" name="cols" min="1" max="{{.MaxSize}}" value="10" required></label>
+    <button type="submit">Generate</button>
+  </form>
+  <form method="post" action="/maze/load" enctype="multipart/form-data">
+    <label>Load file <input type="file" name="file" required></label>
+    <button type="submit">Load</button>
+  </form>
+  <form method="get" action="/maze/save">
+    <button type="submit" {{if not .HasMaze}}disabled{{end}}>Save current maze</button>
+  </form>
+  <img src="/maze/image.png?v={{.ImageVersion}}" alt="maze">
+</section>
+
+<section>
+  <h2>Solve</h2>
+  <form method="post" action="/maze/solve">
+    <label>Start row <input type="number" name="start_row" min="1" value="1" required></label>
+    <label>Start col <input type="number" name="start_col" min="1" value="1" required></label>
+    <label>End row <input type="number" name="end_row" min="1" value="{{.Rows}}" required></label>
+    <label>End col <input type="number" name="end_col" min="1" value="{{.Cols}}" required></label>
+    <button type="submit" {{if not .HasMaze}}disabled{{end}}>Solve</button>
+  </form>
+</section>
+
+<section>
+  <h2>Q-learning agent</h2>
+  <p>The agent trains on the maze above for a fixed end point, then can be queried from any start point.</p>
+  <form method="post" action="/agent/train">
+    <label>End row <input type="number" name="end_row" min="1" value="{{.Rows}}" required></label>
+    <label>End col <input type="number" name="end_col" min="1" value="{{.Cols}}" required></label>
+    <button type="submit" {{if not .HasMaze}}disabled{{end}}>Train</button>
+  </form>
+  {{if .HasAgent}}<p>Agent trained for end point (row {{.AgentEndRow}}, col {{.AgentEndCol}}).</p>{{end}}
+  <form method="post" action="/agent/run">
+    <label>Start row <input type="number" name="start_row" min="1" value="1" required></label>
+    <label>Start col <input type="number" name="start_col" min="1" value="1" required></label>
+    <button type="submit" {{if not .HasAgent}}disabled{{end}}>Run</button>
+  </form>
+  <img src="/agent/image.png?v={{.ImageVersion}}" alt="agent route">
+</section>
+
+</body>
+</html>

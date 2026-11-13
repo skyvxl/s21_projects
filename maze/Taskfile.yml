@@ -2,7 +2,7 @@ version: "3"
 
 vars:
   APP_NAME: Maze
-  ROOT_DIR: "{{.TASKFILE_DIR}}/.."
+  ROOT_DIR: "{{.TASKFILE_DIR}}"
   MAIN: ./cmd/maze
   INSTALL_DIR: "{{.ROOT_DIR}}/build"
   DIST_DIR: "{{.ROOT_DIR}}/dist"
@@ -22,7 +22,7 @@ tasks:
     deps: [ install ]
 
   install:
-    desc: Build Maze.exe into ../build.
+    desc: Build Maze.exe into build.
     dir: "{{.TASKFILE_DIR}}"
     cmds:
       - '{{.PS}} "New-Item -ItemType Directory -Force -Path ''{{.INSTALL_DIR}}'' | Out-Null"'
@@ -44,10 +44,10 @@ tasks:
       - '{{.PS}} "Set-Content -Path ''{{.DOC_FILE}}'' -Encoding UTF8 -Value @(''Maze Go desktop application'', ''Build: make install or task install.'', ''Test: make tests or task tests.'', ''The GUI can load, generate, save, solve mazes, and simulate caves.'')"'
 
   dist:
-    desc: Create ../Maze.zip with sources and README.
+    desc: Create Maze.zip with sources and README.
     deps: [ clean ]
     cmds:
-      - '{{.PS}} "New-Item -ItemType Directory -Force -Path ''{{.DIST_ROOT}}/src'' | Out-Null; Copy-Item -LiteralPath ''{{.ROOT_DIR}}/README_RUS.md'', ''{{.ROOT_DIR}}/go.mod'', ''{{.ROOT_DIR}}/go.sum'' -Destination ''{{.DIST_ROOT}}'' -Force; Get-ChildItem -LiteralPath ''{{.TASKFILE_DIR}}'' -Force | Copy-Item -Destination ''{{.DIST_ROOT}}/src'' -Recurse -Force; Compress-Archive -Force -Path ''{{.DIST_ROOT}}'' -DestinationPath ''{{.ARCHIVE}}''"'
+      - '{{.PS}} "New-Item -ItemType Directory -Force -Path ''{{.DIST_ROOT}}'' | Out-Null; Copy-Item -LiteralPath ''{{.ROOT_DIR}}/README.md'', ''{{.ROOT_DIR}}/go.mod'', ''{{.ROOT_DIR}}/go.sum'', ''{{.ROOT_DIR}}/Makefile'', ''{{.ROOT_DIR}}/Taskfile.yml'', ''{{.ROOT_DIR}}/golangci.yaml'', ''{{.ROOT_DIR}}/cmd'', ''{{.ROOT_DIR}}/internal'', ''{{.ROOT_DIR}}/examples'' -Destination ''{{.DIST_ROOT}}'' -Recurse -Force; Compress-Archive -Force -Path ''{{.DIST_ROOT}}'' -DestinationPath ''{{.ARCHIVE}}''"'
 
   tests:
     desc: Run Go tests with coverage.

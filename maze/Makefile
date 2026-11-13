@@ -1,6 +1,6 @@
 APP_NAME := Maze
 SRC_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
-ROOT_DIR := $(abspath $(SRC_DIR)/..)
+ROOT_DIR := $(SRC_DIR)
 MAIN := ./cmd/maze
 INSTALL_DIR ?= $(ROOT_DIR)/build
 DIST_DIR := $(ROOT_DIR)/dist
@@ -28,7 +28,7 @@ dvi:
 	$(PS) "Set-Content -Path '$(DOC_FILE)' -Encoding UTF8 -Value @('Maze Go desktop application', 'Build: make install or task install.', 'Test: make tests or task tests.', 'The GUI can load, generate, save, solve mazes, and simulate caves.')"
 
 dist: clean
-	$(PS) "New-Item -ItemType Directory -Force -Path '$(DIST_ROOT)/src' | Out-Null; Copy-Item -LiteralPath '$(ROOT_DIR)/README_RUS.md', '$(ROOT_DIR)/go.mod', '$(ROOT_DIR)/go.sum' -Destination '$(DIST_ROOT)' -Force; Get-ChildItem -LiteralPath '$(SRC_DIR)' -Force | Copy-Item -Destination '$(DIST_ROOT)/src' -Recurse -Force; Compress-Archive -Force -Path '$(DIST_ROOT)' -DestinationPath '$(ARCHIVE)'"
+	$(PS) "New-Item -ItemType Directory -Force -Path '$(DIST_ROOT)' | Out-Null; Copy-Item -LiteralPath '$(SRC_DIR)/README.md', '$(SRC_DIR)/go.mod', '$(SRC_DIR)/go.sum', '$(SRC_DIR)/Makefile', '$(SRC_DIR)/Taskfile.yml', '$(SRC_DIR)/golangci.yaml', '$(SRC_DIR)/cmd', '$(SRC_DIR)/internal', '$(SRC_DIR)/examples' -Destination '$(DIST_ROOT)' -Recurse -Force; Compress-Archive -Force -Path '$(DIST_ROOT)' -DestinationPath '$(ARCHIVE)'"
 
 tests:
 	$(PS) "Set-Location -LiteralPath '$(SRC_DIR)'; go test -cover ./..."

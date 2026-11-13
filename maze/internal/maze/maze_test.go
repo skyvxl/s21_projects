@@ -1,8 +1,8 @@
 package maze_test
 
 import (
-	"maze/internal/maze"
 	"bytes"
+	"maze/internal/maze"
 	"strings"
 	"testing"
 )

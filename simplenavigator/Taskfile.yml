@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: "3"
+
+tasks:
+  default:
+    desc: Show available tasks
+    silent: true
+    cmds:
+      - task --list
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run
+
+  fmt:
+    desc: Run gofmt
+    cmds:
+      - gofmt -s -w .
+
+  tests:
+    desc: Run unit tests
+    cmds:
+      - go test ./... -count=1
+
+  tidy:
+    desc: Tidy go.mod
+    cmds:
+      - go mod tidy
+
+  cover:
+    desc: Run coverage
+    cmds:
+      - go test -cover ./...
+
+  build:
+    desc: Build the project
+    cmds:
+      - go build -o build/navigator ./src/cmd/navigator
+  run:
+    desc: Run the project
+    cmds:
+      - go run ./src/cmd/navigator

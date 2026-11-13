@@ -1,12 +1,12 @@
 package render
 
 import (
-	"maze/internal/cave"
-	"maze/internal/maze"
 	"image"
 	"image/color"
 	"image/draw"
 	"math"
+	"maze/internal/cave"
+	"maze/internal/maze"
 )
 
 var (

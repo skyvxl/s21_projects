@@ -1,10 +1,10 @@
 package render_test
 
 import (
+	"image/color"
 	"maze/internal/cave"
 	"maze/internal/maze"
 	"maze/internal/render"
-	"image/color"
 	"testing"
 )
 

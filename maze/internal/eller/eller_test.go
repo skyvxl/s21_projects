@@ -1,8 +1,8 @@
 package eller_test
 
 import (
-	"maze/internal/eller"
 	"math/rand"
+	"maze/internal/eller"
 	"testing"
 )
 

@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link href="data:image/x-icon;base64,AAABAAEAEBACAAAAAACwAAAAFgAAACgAAAAQAAAAIAAAAAEAAQAAAAAAQAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAA4mzrAP/5AACAKQAAv6kAAKApAACv6QAAqA0AAKvVAACqFQAAKvUAACqFAADqvQAAiqEAAL6hAACAAQAA//8AAAAAAAAABgAAf9YAAEBWAABf1gAAUBYAAFfyAABUKgAAVeoAANUKAADVegAAFUIAAHVeAABBXgAAf/4AAAAAAAD//wAA"
+          rel="icon" type="image/x-icon">
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Maze / Cave</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #0f1117;
+            --fg: #dbe4ee;
+            --muted: #55607a;
+            --accent: #f0a868;
+            --border: #232838;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--fg);
+            font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, 'Courier New', monospace;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+        }
+
+        h1 {
+            font-size: 11px;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 2rem;
+        }
+
+        /* tabs */
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab {
+            font-size: 11px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--muted);
+            padding: 6px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: color 0.15s, border-color 0.15s;
+        }
+
+        .tab:hover {
+            color: var(--fg);
+        }
+
+        .tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .panel {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        .panel.active {
+            display: flex;
+        }
+
+        /*controls*/
+        .controls {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .field {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            letter-spacing: 0.1em;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+
+        input[type=number] {
+            width: 52px;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid var(--border);
+            color: var(--fg);
+            font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, 'Courier New', monospace;
+            font-size: 13px;
+            padding: 2px 4px;
+            outline: none;
+            text-align: center;
+        }
+
+        input[type=number]:focus {
+            border-bottom-color: var(--accent);
+        }
+
+        button {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, 'Courier New', monospace;
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            padding: 6px 16px;
+            cursor: pointer;
+            transition: border-color 0.15s, color 0.15s;
+        }
+
+        button:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        button:active {
+            opacity: 0.6;
+        }
+
+        #status {
+            font-size: 11px;
+            letter-spacing: 0.1em;
+            color: var(--fg);
+            min-width: 120px;
+        }
+
+        #status.err {
+            color: #e2685a;
+        }
+
+        #uid-display {
+            font-size: 10px;
+            color: var(--muted);
+            margin-bottom: 1rem;
+            letter-spacing: 0.05em;
+        }
+
+        #canvas-wrap {
+            width: 100%;
+            max-width: 960px;
+            overflow: auto;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<h1>Maze Generator</h1>
+
+<!-- Вкладки -->
+<div class="tabs">
+    <div class="tab active" onclick="switchTab('maze')">Maze</div>
+    <div class="tab" onclick="switchTab('cave')">Cave</div>
+    <div class="tab" onclick="switchTab('rl')">RL Agent</div> <!-- Новая вкладка -->
+</div>
+
+<!-- RL PANEL -->
+<div class="panel" id="panel-rl">
+    <div class="note" style="margin-bottom: 12px; color: #55607a; font-size: 11px;">
+        Step 1: Generate or load a maze in the Maze tab first.
+    </div>
+    <div class="controls">
+        <div class="field">Goal row <input id="rl-endRow" min="0" type="number" value="0"></div>
+        <div class="field">col <input id="rl-endCol" min="0" type="number" value="0"></div>
+        <button onclick="rlTrain()">Train Agent</button>
+        <span id="rl-status"></span>
+    </div>
+    <div class="note" style="margin-bottom: 12px; color: #55607a; font-size: 11px;">
+        Step 2: After training, pick any start point:
+    </div>
+    <div class="controls">
+        <div class="field">Start row <input id="rl-startRow" min="0" type="number" value="0"></div>
+        <div class="field">col <input id="rl-startCol" min="0" type="number" value="0"></div>
+        <button disabled id="btn-rl-path" onclick="rlPath()">Get Path</button>
+    </div>
+    <div class="canvas-wrap">
+        <canvas id="rl-canvas"></canvas>
+    </div>
+</div>
+
+<!-- MAZE PANEL -->
+<div class="panel active" id="panel-maze">
+    <div class="controls">
+        <div class="field">
+            rows <input id="rows" min="1" type="number" value="10">
+        </div>
+        <div class="field">
+            cols <input id="cols" min="1" type="number" value="15">
+        </div>
+        <button onclick="generate()">Generate</button>
+        <button onclick="saveMaze()">Save</button>
+        <button onclick="document.getElementById('fileInput').click()">Load</button>
+        <input accept=".txt" id="fileInput" onchange="loadMaze(this)" style="display:none" type="file">
+        <span class="status" id="maze-status"></span>
+    </div>
+
+    <div class="note" style="margin-bottom: 21px; color: #55607a">
+        Left click on the maze to put start/end points or enter coordinates below:
+    </div>
+
+    <div class="controls">
+        <div class="field">
+            start row <input id="startRow" min="0" type="number" value="">
+        </div>
+        <div class="field">
+            start col <input id="startCol" min="0" type="number" value="">
+        </div>
+        <div class="field">
+            end row <input id="endRow" min="0" type="number" value="">
+        </div>
+        <div class="field">
+            end col <input id="endCol" min="0" type="number" value="">
+        </div>
+        <button onclick="solve()">Solve</button>
+    </div>
+    <div class="canvas-wrap">
+        <canvas id="maze-canvas"></canvas>
+    </div>
+</div>
+
+<!-- CAVE PANEL -->
+<div class="panel" id="panel-cave">
+    <div class="controls">
+        <div class="field">rows <input id="cave-rows" max="50" min="1" type="number" value="30"></div>
+        <div class="field">cols <input id="cave-cols" max="50" min="1" type="number" value="30"></div>
+        <button onclick="generateCave()">Generate</button>
+        <button onclick="saveCave()">Save</button>
+        <button onclick="document.getElementById('caveFileInput').click()">Load</button>
+        <input accept=".txt" id="caveFileInput" onchange="loadCave(this)" style="display:none" type="file">
+        <span class="status" id="cave-status"></span>
+    </div>
+    <div class="controls">
+        <div class="slider-field">
+            init alive %
+            <input id="cave-alive" max="100" min="0" oninput="document.getElementById('cave-alive-val').textContent=this.value+'%'" type="range"
+                   value="54">
+            <span class="slider-val" id="cave-alive-val">54%</span>
+        </div>
+        <div class="slider-field">
+            birth limit
+            <input id="cave-birth" max="7" min="1" oninput="document.getElementById('cave-birth-val').textContent=this.value" type="range"
+                   value="5">
+            <span class="slider-val" id="cave-birth-val">5</span>
+        </div>
+        <div class="slider-field">
+            death limit
+            <input id="cave-death" max="7" min="1" oninput="document.getElementById('cave-death-val').textContent=this.value" type="range"
+                   value="4">
+            <span class="slider-val" id="cave-death-val">4</span>
+        </div>
+    </div>
+    <div class="controls">
+        <div class="field">steps <input id="cave-steps" min="1" style="width:50px" type="number" value="10"></div>
+        <div class="field">delay ms <input id="cave-delay" min="0" style="width:60px" type="number" value="200"></div>
+        <button id="btn-sim-once" onclick="simulateCaveOnce()">Simulate once</button>
+        <button id="btn-sim-auto" onclick="simulateCaveAuto()">Auto simulate</button>
+        <button id="btn-sim-stop" onclick="stopCaveAuto()" style="display:none">Stop</button>
+    </div>
+    <div class="canvas-wrap">
+        <canvas id="cave-canvas"></canvas>
+    </div>
+</div>
+<div id="uid-display"></div>
+
+<script>
+    const API = '';
+    const MIN_CELL = 14;
+    const MAX_CELL = 48;
+
+    /* - maze solver position click helper - */
+    let currentCellSize = null;
+    let latestMazeData = null;
+    let latestPathArray = null;
+
+    let clickState = 'start';   // 'start' or 'end'
+    let pendingStart = null;    // { row, col }
+    let pendingEnd = null;
+
+    const canvas = document.getElementById('maze-canvas');
+
+    canvas.addEventListener('click', function (e) {
+        if (!currentCellSize) return;
+
+        const rect = canvas.getBoundingClientRect();
+        // Scale factor between canvas buffer and CSS size
+        const scaleX = canvas.width / rect.width;    // usually = devicePixelRatio
+        const scaleY = canvas.height / rect.height;
+
+        const mouseCanvasX = (e.clientX - rect.left) * scaleX;
+        const mouseCanvasY = (e.clientY - rect.top) * scaleY;
+
+        const cell = currentCellSize;
+        const col = Math.floor((mouseCanvasX) / cell);
+        const row = Math.floor((mouseCanvasY) / cell);
+
+        const rows = parseInt(document.getElementById('rows').value);
+        const cols = parseInt(document.getElementById('cols').value);
+
+        if (row < 0 || row >= rows || col < 0 || col >= cols) return;
+
+        if (clickState === 'start') {
+            // Clear the old path because we're starting a new pair
+            latestPathArray = null;
+            pendingEnd = null;            // discard previous end point
+
+            pendingStart = {row, col};
+            // ... update input fields ...
+
+            clickState = 'end';
+            // Redraw without the path, but with the new start highlight
+            if (latestMazeData) {
+                drawMaze(latestMazeData, null, pendingStart, null);
+            }
+
+            pendingStart = {row, col};
+            document.getElementById('startRow').value = row;
+            document.getElementById('startCol').value = col;
+            setStatus('Start set at (' + (row) + ', ' + (col) + '). Click for end.', false);
+            clickState = 'end';
+        } else {
+            pendingEnd = {row, col};
+            document.getElementById('endRow').value = row;
+            document.getElementById('endCol').value = col;
+            setStatus('maze-status', 'End set. Ready to solve.', false);
+            clickState = 'start'; // Возвращаем стейт в начало для следующей пары
+        }
+
+        // Redraw with updated highlights
+        if (latestMazeData) {
+            drawMaze(latestMazeData, latestPathArray, pendingStart, pendingEnd);
+        }
+    });
+
+    /* ── uid ── */
+    function getUID() {
+        try {
+            let uid = localStorage.getItem('maze_uid');
+            if (!uid) {
+                uid = 'uid-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('maze_uid', uid);
+            }
+            return uid;
+        } catch (e) {
+            return 'default_user';
+        }
+    }
+
+    /* ── tabs ── */
+    // function switchTab(name) {
+    //   document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ['maze','cave'][i] === name));
+    //   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    //   document.getElementById('panel-' + name).classList.add('active');
+    // }
+
+    function switchTab(name) {
+        const tabs = ['maze', 'cave', 'rl'];
+        document.querySelectorAll('.tab').forEach((t, i) => {
+            t.classList.toggle('active', tabs[i] === name);
+        });
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        const target = document.getElementById('panel-' + name);
+        if (target) target.classList.add('active');
+
+        if (name === 'rl' && latestMazeData) {
+            drawMaze(latestMazeData, null, null, null, 'rl-canvas');
+        }
+    }
+
+    /* ── status helpers ── */
+    function setStatus(id, msg, isErr = false) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = msg;
+        el.className = 'status' + (isErr ? ' err' : '');
+        el.style.color = isErr ? '#e2685a' : '#34d399';
+    }
+
+    /* ── cell size ── */
+    function cellSize(rows, cols) {
+        const availW = Math.min(window.innerWidth - 48, 960);
+        const availH = window.innerHeight - 360;
+        return Math.max(14, Math.min(Math.floor(availW / cols), Math.floor(availH / rows), 48));
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  Canvas drawing helpers                                            */
+    /* ------------------------------------------------------------------ */
+
+    /* ═══════════════════ MAZE ═══════════════════ */
+    function drawMaze(data, pathArray, hlStart, hlEnd, canvasId) {
+        canvasId = canvasId || 'maze-canvas';
+        const rows = data.rows;
+        const cols = data.cols;
+        const vw = data.vertical_walls;
+        const hw = data.horizontal_walls;
+
+        const availW = Math.min(window.innerWidth - 48, 960);
+        const availH = window.innerHeight - 280;
+
+        const cellByW = Math.floor(availW / cols);
+        const cellByH = Math.floor(availH / rows);
+        const cell = Math.max(MIN_CELL, Math.min(cellByW, cellByH, MAX_CELL));
+        if (canvasId === 'maze-canvas') {
+            currentCellSize = cell;
+            latestMazeData = data;
+            latestPathArray = pathArray ? pathArray.slice() : null;
+        }
+
+        const W = cols * cell;
+        const H = rows * cell;
+
+        const canvas = document.getElementById(canvasId);
+        canvas.width = W + 2;
+        canvas.height = H + 2;
+        const ctx = canvas.getContext('2d');
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        /* Maze walls */
+        ctx.strokeStyle = '#dbe4ee';
+        ctx.lineWidth = Math.max(1, cell / 16);
+        ctx.lineCap = 'square';
+        ctx.beginPath();
+        ctx.rect(1, 1, W, H);
+        ctx.stroke();
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const x = 1 + c * cell;
+                const y = 1 + r * cell;
+                if (c < cols - 1 && vw[r][c] === 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(x + cell, y);
+                    ctx.lineTo(x + cell, y + cell);
+                    ctx.stroke();
+                }
+                if (r < rows - 1 && hw[r][c] === 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, y + cell);
+                    ctx.lineTo(x + cell, y + cell);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        /* Path overlay */
+        if (pathArray && pathArray.length) {
+            ctx.save();
+            ctx.strokeStyle = '#f1c40f'; // yellow
+            ctx.lineWidth = Math.max(2, cell / 8);
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            for (let i = 0; i < pathArray.length; i++) {
+                const [r, c] = pathArray[i];
+                const cx = 1 + c * cell + cell / 2;
+                const cy = 1 + r * cell + cell / 2;
+                if (i === 0) ctx.moveTo(cx, cy);
+                else ctx.lineTo(cx, cy);
+            }
+            ctx.stroke();
+
+            /* Start point */
+            const [sr, sc] = pathArray[0];
+            const sx = 1 + sc * cell + cell / 2;
+            const sy = 1 + sr * cell + cell / 2;
+            ctx.fillStyle = '#2ecc71'; // green
+            ctx.beginPath();
+            ctx.arc(sx, sy, Math.max(3, cell / 6), 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillStyle = '#2ecc71';
+
+            /* End point */
+            const last = pathArray[pathArray.length - 1];
+            const [er, ec] = last;
+            const ex = 1 + ec * cell + cell / 2;
+            const ey = 1 + er * cell + cell / 2;
+            ctx.fillStyle = '#e74c3c'; // red
+            ctx.beginPath();
+            ctx.arc(ex, ey, Math.max(3, cell / 6), 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillStyle = '#e74c3c';
+
+            ctx.restore();
+        }
+        // After drawing the path overlay, add highlight markers
+        if (hlStart) {
+            const sx = 1 + hlStart.col * cell + cell / 2;
+            const sy = 1 + hlStart.row * cell + cell / 2;
+            ctx.fillStyle = 'rgba(46, 204, 113, 0.6)';
+            ctx.beginPath();
+            ctx.arc(sx, sy, cell / 3, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.font = `${Math.max(8, cell / 3)}px "Courier New"`;
+            ctx.fillStyle = '#2ecc71';
+            ctx.textAlign = 'center';
+            ctx.fillText('Start', sx, sy - cell / 3);
+        }
+        if (hlEnd) {
+            const ex = 1 + hlEnd.col * cell + cell / 2;
+            const ey = 1 + hlEnd.row * cell + cell / 2;
+            ctx.fillStyle = 'rgba(231, 76, 60, 0.6)';
+            ctx.beginPath();
+            ctx.arc(ex, ey, cell / 3, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.font = `${Math.max(8, cell / 3)}px "Courier New"`;
+            ctx.fillStyle = '#e74c3c';
+            ctx.textAlign = 'center';
+            ctx.fillText('End', ex, ey - cell / 3);
+        }
+    }
+
+    // function drawMaze(canvasId, data, pathArray = null, hlStart = null, hlEnd = null) {
+    //     const canvas = document.getElementById(canvasId);
+    //     if (!canvas) return;
+    //
+    //     const ctx = canvas.getContext('2d');
+    //     const cell = cellSize(data.rows, data.cols);
+    //     currentCellSize = cell;
+    //
+    //     canvas.width = data.cols * cell + 2;
+    //     canvas.height = data.rows * cell + 2;
+    //     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    //
+    //     ctx.strokeStyle = '#dbe4ee';
+    //     ctx.lineWidth = Math.max(1, cell / 16);
+    //     ctx.strokeRect(1, 1, data.cols * cell, data.rows * cell);
+    //
+    //     for (let r = 0; r < data.rows; r++) {
+    //         for (let c = 0; c < data.cols; c++) {
+    //             const x = 1 + c * cell;
+    //             const y = 1 + r * cell;
+    //             if (c < data.cols - 1 && data.vertical_walls[r][c] === 1) {
+    //                 ctx.beginPath(); ctx.moveTo(x + cell, y); ctx.lineTo(x + cell, y + cell); ctx.stroke();
+    //             }
+    //             if (r < data.rows - 1 && data.horizontal_walls[r][c] === 1) {
+    //                 ctx.beginPath(); ctx.moveTo(x, y + cell); ctx.lineTo(x + cell, y + cell); ctx.stroke();
+    //             }
+    //         }
+    //     }
+    //
+    //     if (pathArray && pathArray.length) {
+    //         ctx.strokeStyle = '#f1c40f';
+    //         ctx.lineWidth = Math.max(2, cell / 8);
+    //         ctx.beginPath();
+    //         pathArray.forEach(([r, c], i) => {
+    //             const cx = 1 + c * cell + cell / 2;
+    //             const cy = 1 + r * cell + cell / 2;
+    //             if (i === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
+    //         });
+    //         ctx.stroke();
+    //     }
+    // }
+    /* ------------------------------------------------------------------ */
+    /*  API calls                                                         */
+    /* ------------------------------------------------------------------ */
+
+    async function generate() {
+        const rows = parseInt(document.getElementById('rows').value);
+        const cols = parseInt(document.getElementById('cols').value);
+
+        setStatus('maze-status', 'generating...');
+
+        try {
+            const res = await fetch(API + '/api/maze/generate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({rows, cols, uid: getUID()})
+            });
+
+            if (!res.ok) {
+                setStatus('maze-status', 'http ' + res.status, true);
+                return;
+            }
+
+            const data = await res.json();
+            const msg = data.error || '';
+
+            if (data.status !== 0) {
+                setStatus('maze-status', msg || 'error', true);
+                return;
+            }
+
+            // Update row/col inputs to match generated maze
+            document.getElementById('rows').value = data.rows;
+            document.getElementById('cols').value = data.cols;
+
+            drawMaze(data, data.path);
+            // Show backend note if present, else default size info
+            setStatus('maze-status', msg || (rows + 'x' + cols), false);
+        } catch (e) {
+            setStatus('maze-status', 'fetch failed', true);
+            console.error(e);
+        }
+    }
+
+    async function saveMaze() {
+        setStatus('maze-status', 'saving...');
+
+        try {
+            const res = await fetch(API + '/api/maze/save', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    rows: parseInt(document.getElementById('rows').value),
+                    cols: parseInt(document.getElementById('cols').value),
+                    uid: getUID()
+                })
+            });
+
+            const ct = res.headers.get('Content-Type') || '';
+
+            if (ct.includes('application/json')) {
+                const j = await res.json();
+                setStatus('maze-status', j.error || 'error', true);
+                return;
+            }
+
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'maze.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+            setStatus('maze-status', 'saved');
+        } catch (e) {
+            setStatus('maze-status', 'save failed', true);
+            console.error(e);
+        }
+    }
+
+    async function loadMaze(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const content = await file.text();
+        try {
+            const res = await fetch(API + '/api/maze/load', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({uid: getUID(), content})
+            });
+            const ct = res.headers.get('Content-Type') || '';
+            if (ct.includes('application/json')) {
+                const j = await res.json();
+                const msg = j.error || '';
+                if (j.status !== 0) {
+                    setStatus('maze-status', msg || 'error', true);
+                } else {
+                    document.getElementById('rows').value = j.rows;
+                    document.getElementById('cols').value = j.cols;
+                    drawMaze(j, j.path);
+                    setStatus('maze-status', msg || 'loaded', false);   // show backend note (e.g., "maze loaded")
+                }
+            } else {
+                setStatus('maze-status', 'unexpected response', true);
+            }
+        } catch (e) {
+            setStatus('maze-status', 'load failed', true);
+            console.error(e);
+        }
+        input.value = '';
+    }
+
+    async function solve() {
+        const rows = parseInt(document.getElementById('rows').value);
+        const cols = parseInt(document.getElementById('cols').value);
+        const startRow = parseInt(document.getElementById('startRow').value);
+        const startCol = parseInt(document.getElementById('startCol').value);
+        const endRow = parseInt(document.getElementById('endRow').value);
+        const endCol = parseInt(document.getElementById('endCol').value);
+
+        // Validate that all four coordinates are numbers and within bounds
+        if (isNaN(startRow) || isNaN(startCol) || isNaN(endRow) || isNaN(endCol)) {
+            setStatus('maze-status', 'Set both start and end coordinates (click or type).', true);
+            return;
+        }
+        if (startRow < 0 || startRow > rows || startCol < 0 || startCol > cols ||
+            endRow < 0 || endRow > rows || endCol < 0 || endCol > cols) {
+            setStatus('maze-status', 'Coordinates out of maze bounds.', true);
+            return;
+        }
+
+        setStatus('maze-status', 'solving...');
+
+        try {
+            const res = await fetch(API + '/api/maze/solve', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    uid: getUID(),
+                    rows, cols,
+                    startRow,
+                    startCol,
+                    endRow,
+                    endCol
+                })
+            });
+
+            if (!res.ok) {
+                setStatus('maze-status', 'http ' + res.status, true);
+                return;
+            }
+
+            const data = await res.json();
+            const msg = data.error || '';
+
+            if (data.status !== 0) {
+                setStatus('maze-status', msg || 'error', true);
+                return;
+            }
+
+            document.getElementById('rows').value = data.rows;
+            document.getElementById('cols').value = data.cols;
+
+            // Highlight start/end on canvas (using 0‑based values from the fields)
+            const hlStart = {row: startRow, col: startCol};
+            const hlEnd = {row: endRow, col: endCol};
+
+            drawMaze(data, data.path, hlStart, hlEnd);
+            setStatus('maze-status', msg || ('path length: ' + (data.path ? data.path.length : 0)), false);
+
+            // Reset click state for a fresh pair
+            clickState = 'start';
+            pendingStart = null;
+            pendingEnd = null;
+        } catch (e) {
+            setStatus('maze-status', 'solve failed', true);
+            console.error(e);
+        }
+    }
+
+    // Update internal state when the user types coordinates
+    ['startRow', 'startCol'].forEach(id => {
+        document.getElementById(id).addEventListener('input', syncStartFromInput);
+    });
+    ['endRow', 'endCol'].forEach(id => {
+        document.getElementById(id).addEventListener('input', syncEndFromInput);
+    });
+
+    function syncStartFromInput() {
+        const r = parseInt(document.getElementById('startRow').value);
+        const c = parseInt(document.getElementById('startCol').value);
+        if (!isNaN(r) && !isNaN(c)) {
+            pendingStart = {row: r, col: c};
+            // If the user has not yet placed an end point, clear it
+            if (pendingEnd && pendingEnd.row != null) {
+                // Keep end point – both are now set
+            }
+            clickState = 'end';   // ready for end point (or it's already set)
+            if (latestMazeData) {
+                drawMaze(latestMazeData, latestPathArray, pendingStart, pendingEnd);
+            }
+        }
+    }
+
+    function syncEndFromInput() {
+        const r = parseInt(document.getElementById('endRow').value);
+        const c = parseInt(document.getElementById('endCol').value);
+        if (!isNaN(r) && !isNaN(c)) {
+            pendingEnd = {row: r, col: c};
+            clickState = 'start'; // pair complete
+            if (latestMazeData) {
+                drawMaze(latestMazeData, latestPathArray, pendingStart, pendingEnd);
+            }
+        }
+    }
+
+    /* ═══════════════════ CAVE ═══════════════════ */
+    let lastCaveData = null;
+    let caveAlive = true;
+    let autoTimer = null;
+
+    function drawCave(data) {
+        const {rows, cols, cells} = data;
+        const cell = cellSize(rows, cols);
+        const W = cols * cell, H = rows * cell;
+        const canvas = document.getElementById('cave-canvas');
+        canvas.width = W;
+        canvas.height = H;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, W, H);
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                ctx.fillStyle = cells[r][c] === 1 ? '#dbe4ee' : '#0f1117';
+                ctx.fillRect(c * cell, r * cell, cell, cell);
+            }
+        }
+    }
+
+    function setCaveAliveState(alive) {
+        caveAlive = alive;
+        const btns = ['btn-sim-once', 'btn-sim-auto'];
+        btns.forEach(id => document.getElementById(id).disabled = !alive);
+        if (!alive) setStatus('cave-status', 'cave stabilized — generate new to continue', false);
+    }
+
+    async function generateCave() {
+        const rows = parseInt(document.getElementById('cave-rows').value);
+        const cols = parseInt(document.getElementById('cave-cols').value);
+        const ic = parseInt(document.getElementById('cave-alive').value);
+        stopCaveAuto();
+        setStatus('cave-status', 'generating...');
+        try {
+            const res = await fetch(API + '/api/cave/generate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({rows, cols, ic, uid: getUID()})
+            });
+            const data = await res.json();
+            if (data.status !== 0) {
+                setStatus('cave-status', data.error || 'error', true);
+                return;
+            }
+            lastCaveData = data;
+            drawCave(data);
+            setCaveAliveState(true);
+            setStatus('cave-status', rows + 'x' + cols);
+        } catch (e) {
+            setStatus('cave-status', 'fetch failed', true);
+        }
+    }
+
+    async function saveCave() {
+        setStatus('cave-status', 'saving...');
+        try {
+            const res = await fetch(API + '/api/cave/save', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({uid: getUID()})
+            });
+            const ct = res.headers.get('Content-Type') || '';
+            if (ct.includes('application/json')) {
+                const j = await res.json();
+                setStatus('cave-status', j.error || 'error', true);
+                return;
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'cave.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+            setStatus('cave-status', 'saved');
+        } catch (e) {
+            setStatus('cave-status', 'save failed', true);
+        }
+    }
+
+    async function loadCave(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const content = await file.text();
+        try {
+            const res = await fetch(API + '/api/cave/load', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({uid: getUID(), content})
+            });
+            const j = await res.json();
+            if (j.status !== 0) {
+                setStatus('cave-status', j.error || 'error', true);
+            } else {
+                lastCaveData = j;
+                drawCave(j);
+                setCaveAliveState(true);
+                setStatus('cave-status', 'loaded ' + j.rows + 'x' + j.cols);
+            }
+        } catch (e) {
+            setStatus('cave-status', 'load failed', true);
+        }
+        input.value = '';
+    }
+
+    async function doSimulateStep() {
+        const bl = parseInt(document.getElementById('cave-birth').value);
+        const dl = parseInt(document.getElementById('cave-death').value);
+        if (!lastCaveData || !caveAlive) return false;
+        try {
+            const res = await fetch(API + '/api/cave/simulate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({bl, dl, uid: getUID()})
+            });
+            //body:JSON.stringify({uid:getUID()}) });
+            const data = await res.json();
+            if (data.status !== 0) {
+                setStatus('cave-status', data.error || 'error', true);
+                return false;
+            }
+            lastCaveData = data;
+            drawCave(data);
+            if (data.alive === 0) {
+                setCaveAliveState(false);
+                return false;
+            }
+            return true;
+        } catch (e) {
+            setStatus('cave-status', 'simulate failed', true);
+            return false;
+        }
+    }
+
+    async function simulateCaveOnce() {
+        if (!caveAlive) return;
+        setStatus('cave-status', 'simulating...');
+        const ok = await doSimulateStep();
+        if (ok) setStatus('cave-status', 'step done');
+    }
+
+    async function simulateCaveAuto() {
+        if (!caveAlive || autoTimer !== null) return;
+        const steps = parseInt(document.getElementById('cave-steps').value);
+        const delay = parseInt(document.getElementById('cave-delay').value);
+        document.getElementById('btn-sim-stop').style.display = '';
+        document.getElementById('btn-sim-auto').disabled = true;
+        let count = 0;
+        const tick = async () => {
+            if (count >= steps || !caveAlive) {
+                stopCaveAuto();
+                return;
+            }
+            const ok = await doSimulateStep();
+            count++;
+            setStatus('cave-status', 'step ' + count + '/' + steps);
+            if (ok && count < steps) autoTimer = setTimeout(tick, delay);
+            else stopCaveAuto();
+        };
+        autoTimer = setTimeout(tick, 0);
+    }
+
+    function stopCaveAuto() {
+        if (autoTimer !== null) {
+            clearTimeout(autoTimer);
+            autoTimer = null;
+        }
+        document.getElementById('btn-sim-stop').style.display = 'none';
+        document.getElementById('btn-sim-auto').disabled = !caveAlive;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  RLlearning                                                        */
+    /* ------------------------------------------------------------------ */
+
+    /* --- Логика RL Agent --- */
+    async function rlTrain() {
+        if (!latestMazeData) {
+            setStatus('rl-status', 'Load or generate a maze first!', true);
+            return;
+        }
+        const endRow = parseInt(document.getElementById('rl-endRow').value);
+        const endCol = parseInt(document.getElementById('rl-endCol').value);
+        if (endRow < 0 || endRow >= latestMazeData.rows || endCol < 0 || endCol >= latestMazeData.cols) {
+            setStatus('rl-status', 'Goal out of bounds', true);
+            return;
+        }
+        // train uses endRow/endCol as goal, startRow/startCol as initial path preview
+        const body = {
+            uid: getUID(),
+            startRow: endRow,
+            startCol: endCol,
+            endRow: endRow,
+            endCol: endCol
+        };
+        setStatus('rl-status', 'Training... (may take a moment)');
+        try {
+            const res = await fetch(API + '/api/qlearning/train', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            if (data.status !== 0) {
+                setStatus('rl-status', data.error || 'error', true);
+                return;
+            }
+            drawMaze(latestMazeData, null, null, {row: endRow, col: endCol}, 'rl-canvas');
+            document.getElementById('btn-rl-path').disabled = false;
+            setStatus('rl-status', 'Agent trained! Now pick a start point.');
+        } catch (e) {
+            setStatus('rl-status', 'Error: ' + e.message, true);
+        }
+    }
+
+    async function rlPath() {
+        const startRow = parseInt(document.getElementById('rl-startRow').value);
+        const startCol = parseInt(document.getElementById('rl-startCol').value);
+        if (!latestMazeData) {
+            setStatus('rl-status', 'No maze!', true);
+            return;
+        }
+        if (startRow < 0 || startRow >= latestMazeData.rows || startCol < 0 || startCol >= latestMazeData.cols) {
+            setStatus('rl-status', 'Start out of bounds', true);
+            return;
+        }
+        const body = {
+            uid: getUID(),
+            startRow: startRow,
+            startCol: startCol,
+            endRow: startRow,  // ignored by backend for path, but parse_maze_request requires coords
+            endCol: startCol
+        };
+        setStatus('rl-status', 'Finding path...');
+        try {
+            const res = await fetch(API + '/api/qlearning/path', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            if (data.status !== 0) {
+                setStatus('rl-status', data.error || 'error', true);
+                return;
+            }
+            const endRow = parseInt(document.getElementById('rl-endRow').value);
+            const endCol = parseInt(document.getElementById('rl-endCol').value);
+            drawMaze(latestMazeData, data.path,
+                {row: startRow, col: startCol},
+                {row: endRow, col: endCol},
+                'rl-canvas');
+            setStatus('rl-status', 'Path length: ' + (data.path ? data.path.length : 0));
+        } catch (e) {
+            setStatus('rl-status', 'Path failed: ' + e.message, true);
+        }
+    }
+
+    /* --- Инициализация --- */
+    window.onload = () => {
+        document.getElementById('uid-display').textContent = 'uid: ' + getUID();
+    };
+    /* ------------------------------------------------------------------ */
+    /*  Initialise                                                        */
+    /* ------------------------------------------------------------------ */
+
+    const uid = getUID();
+    document.getElementById('uid-display').textContent = 'uid: ' + uid;
+
+    /* Demo maze on load */
+    //const demo = {
+    //  "status": 0, "rows": 10, "cols": 15,
+    //  "horizontal_walls": [[0,0,1,0,0,0,0,1,0,0,0,0,0,0,0],[0,1,0,0,0,1,0,0,0,1,0,0,1,1,0],[0,0,0,0,0,1,0,1,0,1,1,0,0,1,0],[0,0,0,1,0,0,0,0,1,1,1,1,0,1,0],[1,0,1,0,1,1,1,0,0,0,1,0,0,1,0],[0,0,0,1,1,1,1,1,1,0,0,0,1,1,1],[1,0,0,0,1,0,0,1,0,0,0,0,1,1,0],[1,0,1,0,0,1,0,1,0,1,1,0,0,0,0],[0,0,0,0,1,1,0,0,1,1,1,0,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
+    //  "vertical_walls":   [[0,0,1,0,0,1,1,0,0,1,1,1,1,0,1],[1,1,1,1,1,0,1,1,1,1,1,1,1,1,1],[1,1,0,1,1,0,0,1,1,0,1,0,1,0,1],[1,1,1,1,1,1,1,0,1,0,1,1,1,1,1],[1,1,1,0,1,1,1,1,1,1,0,1,1,1,1],[0,0,1,0,1,1,0,0,1,0,1,0,0,1,1],[1,1,0,1,1,1,1,1,0,1,1,0,1,1,1],[0,1,1,0,1,1,0,0,1,1,1,1,0,1,1],[0,0,1,1,1,1,1,1,1,0,1,1,1,0,1],[1,1,1,0,1,0,1,1,0,0,1,1,0,0,1]]
+    //};
+    //drawMaze(demo);
+</script>
+</body>
+</html>
