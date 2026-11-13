@@ -1,9 +1,9 @@
 package web
 
 import (
-	"tictactoe/src/internal/domain"
 	"encoding/json"
 	"net/http"
+	"tictactoe/src/internal/domain"
 
 	"github.com/google/uuid"
 )

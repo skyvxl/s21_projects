@@ -1,8 +1,8 @@
 package jwt
 
 import (
-	"tictactoe/src/internal/domain"
 	"testing"
+	"tictactoe/src/internal/domain"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"

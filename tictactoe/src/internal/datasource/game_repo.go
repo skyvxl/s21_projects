@@ -1,11 +1,11 @@
 package datasource
 
 import (
-	"tictactoe/src/internal/db"
-	"tictactoe/src/internal/domain"
 	"context"
 	"encoding/json"
 	"fmt"
+	"tictactoe/src/internal/db"
+	"tictactoe/src/internal/domain"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"

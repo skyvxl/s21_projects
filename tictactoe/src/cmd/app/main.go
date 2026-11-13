@@ -1,8 +1,8 @@
 package main
 
 import (
-	"tictactoe/src/internal/di"
 	"log"
+	"tictactoe/src/internal/di"
 
 	"github.com/joho/godotenv"
 )
